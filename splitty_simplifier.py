@@ -3,6 +3,7 @@ from utils_tgbot import *
 import decimal
 import re
 import telegram.ext
+import textwrap
 
 class SplittySimplifier:
     def __init__(self, token):
@@ -10,13 +11,14 @@ class SplittySimplifier:
         self.dispatcher = self.updater.dispatcher
         self.bot = BotWrapper(self.dispatcher.bot)
 
-        # Add handler
+        # Add handlers
         self.dispatcher.add_handler(
             telegram.ext.MessageHandler(
                 telegram.ext.Filters.forwarded & telegram.ext.Filters.text,
-                self.handler,
+                self.bill_handler,
             )
         )
+        self.dispatcher.add_handler(telegram.ext.CommandHandler('help', self.help_handler))
         self.updater.start_polling()
 
     @staticmethod
@@ -67,13 +69,24 @@ class SplittySimplifier:
         return 'Simplified debt:\n' + \
             '\n'.join('%s → %s, %s💰' % transfer for transfer in sorted(transfers))
 
-    def handler(self, bot, update):
+    def bill_handler(self, bot, update):
         if update.message.forward_from.username != 'splittybot':
             return
         balance = self.parse(update.message.text)
         transfers = self.greedy_simplify(balance)
         output = self.create_output(transfers)
         self.bot.reply(update.message, output)
+
+    def help_handler(self, bot, update):
+        self.bot.reply(
+            update.message,
+            textwrap.dedent('''
+                How to use this bot:
+                1. Use @splittybot to keep track of group expenses
+                2. Type /split to get the group bill
+                3. Forward this bill to @splitty_simplifier_bot to get the simplified debt
+            ''')
+        )
 
 if __name__ == '__main__':
     splitty_simplifier = SplittySimplifier(token=TOKEN)
